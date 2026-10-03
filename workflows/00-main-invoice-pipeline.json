@@ -1,0 +1,182 @@
+{
+  "updatedAt": "2026-10-03T06:07:45.557Z",
+  "createdAt": "2026-10-02T16:56:02.347Z",
+  "id": "fhNO7as61pCzVA1N",
+  "name": "00-main-invoice-pipeline",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Upload Invoice",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "invoice",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf, .png, .jpg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -592,
+        -96
+      ],
+      "id": "1ba8a18f-f00a-4eff-83b4-eeb40d8608f4",
+      "name": "Upload Invoice",
+      "webhookId": "ca077e60-c466-4ae9-9fa9-dafe71d065dd"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "invoice",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -304,
+        -160
+      ],
+      "id": "8d3392af-6035-4165-8a94-a0a736ef8362",
+      "name": "Extract PDF Text"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e4c9a75e-0bb8-4538-8630-b49d011a0f18",
+              "leftValue": "=   {{ ($json.text || '').length }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "4578e5fe-5a2e-4836-a4f1-5205014a8aae",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -112,
+        -160
+      ],
+      "id": "24dd92a4-7bc0-4ee8-9643-f270e071c6db",
+      "name": "Has Text"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        32
+      ],
+      "id": "faea1be3-9b35-445f-9114-84a574bf97eb",
+      "name": "OCR Fallback (todo)"
+    }
+  ],
+  "connections": {
+    "Upload Invoice": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Has Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Text": {
+      "main": [
+        [],
+        [
+          {
+            "node": "OCR Fallback (todo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "37dc11a5-9c5c-4628-8010-ff7d414c18c2",
+  "activeVersionId": null,
+  "versionCounter": 97,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-10-02T16:56:02.347Z",
+      "createdAt": "2026-10-02T16:56:02.347Z",
+      "role": "workflow:owner",
+      "workflowId": "fhNO7as61pCzVA1N",
+      "projectId": "7pKd69cnBFNDNZE1",
+      "project": {
+        "updatedAt": "2026-10-02T16:28:32.628Z",
+        "createdAt": "2026-10-02T16:27:14.439Z",
+        "id": "7pKd69cnBFNDNZE1",
+        "name": "Adarsh Yadav <mk079164@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "5c9ad008-0971-46f9-8682-317f5d103ab1"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
