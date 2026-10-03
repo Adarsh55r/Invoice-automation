@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-03T06:07:45.557Z",
+  "updatedAt": "2026-10-03T11:10:52.246Z",
   "createdAt": "2026-10-02T16:56:02.347Z",
   "id": "fhNO7as61pCzVA1N",
   "name": "00-main-invoice-pipeline",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.6,
       "position": [
-        -592,
-        -96
+        -832,
+        -272
       ],
       "id": "1ba8a18f-f00a-4eff-83b4-eeb40d8608f4",
       "name": "Upload Invoice",
@@ -41,8 +41,8 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        -304,
-        -160
+        -832,
+        -128
       ],
       "id": "8d3392af-6035-4165-8a94-a0a736ef8362",
       "name": "Extract PDF Text"
@@ -85,8 +85,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -112,
-        -160
+        -624,
+        -128
       ],
       "id": "24dd92a4-7bc0-4ee8-9643-f270e071c6db",
       "name": "Has Text"
@@ -96,11 +96,98 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -16,
-        32
+        -512,
+        -384
       ],
       "id": "faea1be3-9b35-445f-9114-84a574bf97eb",
       "name": "OCR Fallback (todo)"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You extract invoice data. Return ONLY JSON with this shape:\n       {\"vendor\": string, \"invoice_no\": string, \"currency\": string,\n        \"invoice_date\": \"YYYY-MM-DD\", \"due_date\": \"YYYY-MM-DD\",\n        \"subtotal\": number, \"tax\": number, \"total\": number,\n        \"line_items\": [{\"description\": string, \"qty\": number, \"unit_price\": number, \"amount\": number}]}\n       Use null for any field you cannot find. Never guess."
+            },
+            {
+              "content": "=Extract the data from this invoice text:\n{{ $json.text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -480,
+        -144
+      ],
+      "id": "c9bc0fc9-0a35-445d-a495-fdc9fd847f85",
+      "name": "LLM Extract",
+      "credentials": {
+        "openAiApi": {
+          "id": "s8KwcQC9rJTYeqbK",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Your n8n version returns the answer at output[0].content[0].text\nlet text = raw.output?.[0]?.content?.[0]?.text\n        ?? raw.message?.content\n        ?? raw.content\n        ?? raw.text\n        ?? '';\n\nlet data = null;\nlet error = null;\ntry {\n  const cleaned = String(text).replace(/```json|```/g, '').trim();\n  data = JSON.parse(cleaned);\n} catch (e) {\n  error = e.message;\n}\n\nreturn [{\n  json: {\n    parsed: data,\n    parse_ok: data !== null,\n    parse_error: error\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        -144
+      ],
+      "id": "29343e33-0bff-476a-9214-976c93e1e2a4",
+      "name": "Parse LLM JSON"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name FROM vendors WHERE lower(name) = lower($1)",
+        "options": {
+          "queryReplacement": "={{ [ $json.parsed.vendor || '' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -64,
+        -144
+      ],
+      "id": "3ef93934-2fdd-4316-9f42-77db1c232b72",
+      "name": "Vendor Lookup",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Parse LLM JSON').first().json.parsed;\nconst vendorRow = $input.first().json;\nconst issues = [];\nlet score = 100;\n\nif (!p) {\n  return [{ json: { invoice: null, confidence: 0, issues: ['LLM output not valid JSON'], dedupe_key: null } }];\n}\n\nfor (const f of ['vendor', 'invoice_no', 'total', 'due_date']) {\n  if (p[f] === null || p[f] === undefined || p[f] === '') {\n    issues.push(`missing ${f}`); score -= 25;\n  }\n}\nif (p.due_date && isNaN(Date.parse(p.due_date))) {\n  issues.push('due_date not parseable'); score -= 15;\n}\nconst items = p.line_items || [];\nconst sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);\nif (items.length && p.subtotal != null && Math.abs(sum - p.subtotal) > 0.01) {\n  issues.push(`line items (${sum}) != subtotal (${p.subtotal})`); score -= 30;\n}\nif (p.subtotal != null && p.tax != null && p.total != null &&\n    Math.abs(p.subtotal + p.tax - p.total) > 0.01) {\n  issues.push('subtotal + tax != total'); score -= 30;\n}\nif (!vendorRow.id) {\n  issues.push('vendor not in vendor master'); score -= 20;\n}\n\nreturn [{\n  json: {\n    invoice: p,\n    confidence: Math.max(score, 0),\n    issues,\n    dedupe_key: `${(p.vendor || '').toLowerCase()}|${p.invoice_no}|${p.total}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -144
+      ],
+      "id": "9d92779c-c354-4762-b093-6083bdf9bea5",
+      "name": "Validate and Score"
     }
   ],
   "connections": {
@@ -128,10 +215,49 @@
     },
     "Has Text": {
       "main": [
-        [],
+        [
+          {
+            "node": "LLM Extract",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "OCR Fallback (todo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Extract": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM JSON": {
+      "main": [
+        [
+          {
+            "node": "Vendor Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendor Lookup": {
+      "main": [
+        [
+          {
+            "node": "Validate and Score",
             "type": "main",
             "index": 0
           }
@@ -149,9 +275,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "37dc11a5-9c5c-4628-8010-ff7d414c18c2",
+  "versionId": "47aee405-bd98-4c85-bc5f-1c2c2dbede6a",
   "activeVersionId": null,
-  "versionCounter": 97,
+  "versionCounter": 171,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
