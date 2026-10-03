@@ -1,1 +1,549 @@
-[{"updatedAt":"2026-10-03T17:45:47.616Z","createdAt":"2026-10-02T16:56:02.347Z","id":"fhNO7as61pCzVA1N","name":"00-main-invoice-pipeline","description":null,"active":false,"isArchived":false,"nodes":[{"parameters":{"formTitle":"Upload Invoice","formFields":{"values":[{"fieldLabel":"invoice","fieldType":"file","multipleFiles":false,"acceptFileTypes":".pdf, .png, .jpg"}]},"options":{}},"type":"n8n-nodes-base.formTrigger","typeVersion":2.6,"position":[-1616,-592],"id":"1ba8a18f-f00a-4eff-83b4-eeb40d8608f4","name":"Upload Invoice","webhookId":"ca077e60-c466-4ae9-9fa9-dafe71d065dd"},{"parameters":{"operation":"pdf","binaryPropertyName":"invoice","options":{}},"type":"n8n-nodes-base.extractFromFile","typeVersion":1.1,"position":[-1392,-592],"id":"8d3392af-6035-4165-8a94-a0a736ef8362","name":"Extract PDF Text"},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":3},"conditions":[{"id":"e4c9a75e-0bb8-4538-8630-b49d011a0f18","leftValue":"=   {{ ($json.text || '').length }}","rightValue":"","operator":{"type":"string","operation":"exists","singleValue":true}},{"id":"4578e5fe-5a2e-4836-a4f1-5205014a8aae","leftValue":"","rightValue":"","operator":{"type":"string","operation":"equals","name":"filter.operator.equals"}}],"combinator":"and"},"options":{}},"type":"n8n-nodes-base.if","typeVersion":2.3,"position":[-1184,-576],"id":"24dd92a4-7bc0-4ee8-9643-f270e071c6db","name":"Has Text"},{"parameters":{},"type":"n8n-nodes-base.noOp","typeVersion":1,"position":[-1280,-144],"id":"faea1be3-9b35-445f-9114-84a574bf97eb","name":"OCR Fallback (todo)"},{"parameters":{"modelId":{"__rl":true,"value":"gpt-4o-mini","mode":"list","cachedResultName":"GPT-4O-MINI"},"responses":{"values":[{"role":"system","content":"You extract invoice data. Return ONLY JSON with this shape:\n       {\"vendor\": string, \"invoice_no\": string, \"currency\": string,\n        \"invoice_date\": \"YYYY-MM-DD\", \"due_date\": \"YYYY-MM-DD\",\n        \"subtotal\": number, \"tax\": number, \"total\": number,\n        \"line_items\": [{\"description\": string, \"qty\": number, \"unit_price\": number, \"amount\": number}]}\n       Use null for any field you cannot find. Never guess."},{"content":"=Extract the data from this invoice text:\n{{ $json.text }}"}]},"builtInTools":{},"options":{}},"type":"@n8n/n8n-nodes-langchain.openAi","typeVersion":2.3,"position":[-976,-576],"id":"c9bc0fc9-0a35-445d-a495-fdc9fd847f85","name":"LLM Extract","credentials":{"openAiApi":{"id":"s8KwcQC9rJTYeqbK","name":"OpenAI account"}}},{"parameters":{"jsCode":"const raw = $input.first().json;\n\n// Your n8n version returns the answer at output[0].content[0].text\nlet text = raw.output?.[0]?.content?.[0]?.text\n        ?? raw.message?.content\n        ?? raw.content\n        ?? raw.text\n        ?? '';\n\nlet data = null;\nlet error = null;\ntry {\n  const cleaned = String(text).replace(/```json|```/g, '').trim();\n  data = JSON.parse(cleaned);\n} catch (e) {\n  error = e.message;\n}\n\nreturn [{\n  json: {\n    parsed: data,\n    parse_ok: data !== null,\n    parse_error: error\n  }\n}];"},"type":"n8n-nodes-base.code","typeVersion":2,"position":[-976,-368],"id":"29343e33-0bff-476a-9214-976c93e1e2a4","name":"Parse LLM JSON"},{"parameters":{"operation":"executeQuery","query":"SELECT id, name FROM vendors WHERE lower(name) = lower($1)","options":{"queryReplacement":"={{ [ $json.parsed.vendor || '' ] }}"}},"type":"n8n-nodes-base.postgres","typeVersion":2.7,"position":[-800,-368],"id":"3ef93934-2fdd-4316-9f42-77db1c232b72","name":"Vendor Lookup","alwaysOutputData":true,"credentials":{"postgres":{"id":"Sb6mreBKArrNSsV5","name":"Postgres account"}}},{"parameters":{"jsCode":"const p = $('Parse LLM JSON').first().json.parsed;\nconst vendorRow = $input.first().json;\nconst issues = [];\nlet score = 100;\n\nif (!p) {\n  return [{ json: { invoice: null, confidence: 0, issues: ['LLM output not valid JSON'], dedupe_key: null } }];\n}\n\nfor (const f of ['vendor', 'invoice_no', 'total', 'due_date']) {\n  if (p[f] === null || p[f] === undefined || p[f] === '') {\n    issues.push(`missing ${f}`); score -= 25;\n  }\n}\nif (p.due_date && isNaN(Date.parse(p.due_date))) {\n  issues.push('due_date not parseable'); score -= 15;\n}\nconst items = p.line_items || [];\nconst sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);\nif (items.length && p.subtotal != null && Math.abs(sum - p.subtotal) > 0.01) {\n  issues.push(`line items (${sum}) != subtotal (${p.subtotal})`); score -= 30;\n}\nif (p.subtotal != null && p.tax != null && p.total != null &&\n    Math.abs(p.subtotal + p.tax - p.total) > 0.01) {\n  issues.push('subtotal + tax != total'); score -= 30;\n}\nif (!vendorRow.id) {\n  issues.push('vendor not in vendor master'); score -= 20;\n}\n\nreturn [{\n  json: {\n    invoice: p,\n    confidence: Math.max(score, 0),\n    issues,\n    dedupe_key: `${(p.vendor || '').toLowerCase()}|${p.invoice_no}|${p.total}`\n  }\n}];"},"type":"n8n-nodes-base.code","typeVersion":2,"position":[-576,-368],"id":"9d92779c-c354-4762-b093-6083bdf9bea5","name":"Validate and Score"},{"parameters":{"operation":"executeQuery","query":"   INSERT INTO invoices\n     (vendor, invoice_no, amount, tax, currency, due_date, line_items, confidence, issues, status, dedupe_hash)\n   VALUES\n     ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, 'pending', md5($10))\n   ON CONFLICT (dedupe_hash) DO NOTHING\n   RETURNING id;","options":{"queryReplacement":"=   {{ [      $json.invoice.vendor,      $json.invoice.invoice_no,      $json.invoice.total,      $json.invoice.tax,      $json.invoice.currency,      $json.invoice.due_date,      JSON.stringify($json.invoice.line_items),      $json.confidence,      JSON.stringify($json.issues),      $json.dedupe_key    ] }}"}},"type":"n8n-nodes-base.postgres","typeVersion":2.7,"position":[-320,-368],"id":"81edc7d7-0895-4183-8a8d-9a39cdb86875","name":"Insert Invoice","alwaysOutputData":true,"credentials":{"postgres":{"id":"Sb6mreBKArrNSsV5","name":"Postgres account"}}},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":3},"conditions":[{"id":"0f06b34d-c097-409f-bff0-b6bc702185de","leftValue":"={{ $json.id !== undefined && $json.id !== null }}","operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"},"options":{}},"type":"n8n-nodes-base.if","typeVersion":2.3,"position":[-96,-368],"id":"29739114-12a6-47eb-96c2-e75488ee4c9b","name":"Is New ?"},{"parameters":{"operation":"executeQuery","query":"   INSERT INTO audit_log (invoice_id, action, actor, details)\n   VALUES (NULL, 'duplicate_rejected', 'system', $1::jsonb);","options":{"queryReplacement":"={{ [ JSON.stringify({ vendor: $('Validate and Score').first().json.invoice.vendor, invoice_no: $('Validate and Score').first().json.invoice.invoice_no }) ] }}"}},"type":"n8n-nodes-base.postgres","typeVersion":2.7,"position":[96,-240],"id":"747c4b7c-764c-429e-92e9-04277a856812","name":"Audit: Duplicate","credentials":{"postgres":{"id":"Sb6mreBKArrNSsV5","name":"Postgres account"}}}],"connections":{"Upload Invoice":{"main":[[{"node":"Extract PDF Text","type":"main","index":0}]]},"Extract PDF Text":{"main":[[{"node":"Has Text","type":"main","index":0}]]},"Has Text":{"main":[[{"node":"LLM Extract","type":"main","index":0}],[{"node":"OCR Fallback (todo)","type":"main","index":0}]]},"LLM Extract":{"main":[[{"node":"Parse LLM JSON","type":"main","index":0}]]},"Parse LLM JSON":{"main":[[{"node":"Vendor Lookup","type":"main","index":0}]]},"Vendor Lookup":{"main":[[{"node":"Validate and Score","type":"main","index":0}]]},"Validate and Score":{"main":[[{"node":"Insert Invoice","type":"main","index":0}]]},"Insert Invoice":{"main":[[{"node":"Is New ?","type":"main","index":0}]]},"Is New ?":{"main":[[],[{"node":"Audit: Duplicate","type":"main","index":0}]]}},"settings":{"executionOrder":"v1","binaryMode":"separate"},"staticData":null,"meta":{"templateCredsSetupCompleted":true},"nodeGroups":[],"pinData":{},"versionId":"dff6e3c8-debb-4499-92bf-2a667be7e81e","activeVersionId":null,"versionCounter":232,"triggerCount":0,"sourceWorkflowId":null,"tags":[],"shared":[{"updatedAt":"2026-10-02T16:56:02.347Z","createdAt":"2026-10-02T16:56:02.347Z","role":"workflow:owner","workflowId":"fhNO7as61pCzVA1N","projectId":"7pKd69cnBFNDNZE1","project":{"updatedAt":"2026-10-02T16:28:32.628Z","createdAt":"2026-10-02T16:27:14.439Z","id":"7pKd69cnBFNDNZE1","name":"Adarsh Yadav <mk079164@gmail.com>","type":"personal","icon":null,"description":null,"customTelemetryTags":[],"creatorId":"5c9ad008-0971-46f9-8682-317f5d103ab1"}}],"versionMetadata":{"name":null,"description":null}}]
+{
+  "updatedAt": "2026-10-03T18:36:40.331Z",
+  "createdAt": "2026-10-02T16:56:02.347Z",
+  "id": "fhNO7as61pCzVA1N",
+  "name": "00-main-invoice-pipeline",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Upload Invoice",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "invoice",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf, .png, .jpg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -1744,
+        -832
+      ],
+      "id": "1ba8a18f-f00a-4eff-83b4-eeb40d8608f4",
+      "name": "Upload Invoice",
+      "webhookId": "ca077e60-c466-4ae9-9fa9-dafe71d065dd"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "invoice",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1552,
+        -832
+      ],
+      "id": "8d3392af-6035-4165-8a94-a0a736ef8362",
+      "name": "Extract PDF Text"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e4c9a75e-0bb8-4538-8630-b49d011a0f18",
+              "leftValue": "=   {{ ($json.text || '').length }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "4578e5fe-5a2e-4836-a4f1-5205014a8aae",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1344,
+        -800
+      ],
+      "id": "24dd92a4-7bc0-4ee8-9643-f270e071c6db",
+      "name": "Has Text"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1328,
+        -944
+      ],
+      "id": "faea1be3-9b35-445f-9114-84a574bf97eb",
+      "name": "OCR Fallback (todo)"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You extract invoice data. Return ONLY JSON with this shape:\n       {\"vendor\": string, \"invoice_no\": string, \"currency\": string,\n        \"invoice_date\": \"YYYY-MM-DD\", \"due_date\": \"YYYY-MM-DD\",\n        \"subtotal\": number, \"tax\": number, \"total\": number,\n        \"line_items\": [{\"description\": string, \"qty\": number, \"unit_price\": number, \"amount\": number}]}\n       Use null for any field you cannot find. Never guess."
+            },
+            {
+              "content": "=Extract the data from this invoice text:\n{{ $json.text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -1088,
+        -816
+      ],
+      "id": "c9bc0fc9-0a35-445d-a495-fdc9fd847f85",
+      "name": "LLM Extract",
+      "credentials": {
+        "openAiApi": {
+          "id": "s8KwcQC9rJTYeqbK",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Your n8n version returns the answer at output[0].content[0].text\nlet text = raw.output?.[0]?.content?.[0]?.text\n        ?? raw.message?.content\n        ?? raw.content\n        ?? raw.text\n        ?? '';\n\nlet data = null;\nlet error = null;\ntry {\n  const cleaned = String(text).replace(/```json|```/g, '').trim();\n  data = JSON.parse(cleaned);\n} catch (e) {\n  error = e.message;\n}\n\nreturn [{\n  json: {\n    parsed: data,\n    parse_ok: data !== null,\n    parse_error: error\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        -816
+      ],
+      "id": "29343e33-0bff-476a-9214-976c93e1e2a4",
+      "name": "Parse LLM JSON"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name FROM vendors WHERE lower(name) = lower($1)",
+        "options": {
+          "queryReplacement": "={{ [ $json.parsed.vendor || '' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -1696,
+        -400
+      ],
+      "id": "3ef93934-2fdd-4316-9f42-77db1c232b72",
+      "name": "Vendor Lookup",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Parse LLM JSON').first().json.parsed;\nconst vendorRow = $input.first().json;\nconst issues = [];\nlet score = 100;\n\nif (!p) {\n  return [{ json: { invoice: null, confidence: 0, issues: ['LLM output not valid JSON'], dedupe_key: null } }];\n}\n\nfor (const f of ['vendor', 'invoice_no', 'total', 'due_date']) {\n  if (p[f] === null || p[f] === undefined || p[f] === '') {\n    issues.push(`missing ${f}`); score -= 25;\n  }\n}\nif (p.due_date && isNaN(Date.parse(p.due_date))) {\n  issues.push('due_date not parseable'); score -= 15;\n}\nconst items = p.line_items || [];\nconst sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);\nif (items.length && p.subtotal != null && Math.abs(sum - p.subtotal) > 0.01) {\n  issues.push(`line items (${sum}) != subtotal (${p.subtotal})`); score -= 30;\n}\nif (p.subtotal != null && p.tax != null && p.total != null &&\n    Math.abs(p.subtotal + p.tax - p.total) > 0.01) {\n  issues.push('subtotal + tax != total'); score -= 30;\n}\nif (!vendorRow.id) {\n  issues.push('vendor not in vendor master'); score -= 20;\n}\n\nreturn [{\n  json: {\n    invoice: p,\n    confidence: Math.max(score, 0),\n    issues,\n    dedupe_key: `${(p.vendor || '').toLowerCase()}|${p.invoice_no}|${p.total}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1440,
+        -400
+      ],
+      "id": "9d92779c-c354-4762-b093-6083bdf9bea5",
+      "name": "Validate and Score"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO invoices\n     (vendor, invoice_no, amount, tax, currency, due_date, line_items, confidence, issues, status, dedupe_hash)\n   VALUES\n     ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, 'pending', md5($10))\n   ON CONFLICT (dedupe_hash) DO NOTHING\n   RETURNING id;",
+        "options": {
+          "queryReplacement": "=   {{ [      $json.invoice.vendor,      $json.invoice.invoice_no,      $json.invoice.total,      $json.invoice.tax,      $json.invoice.currency,      $json.invoice.due_date,      JSON.stringify($json.invoice.line_items),      $json.confidence,      JSON.stringify($json.issues),      $json.dedupe_key    ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -1248,
+        -400
+      ],
+      "id": "81edc7d7-0895-4183-8a8d-9a39cdb86875",
+      "name": "Insert Invoice",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0f06b34d-c097-409f-bff0-b6bc702185de",
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1024,
+        -400
+      ],
+      "id": "29739114-12a6-47eb-96c2-e75488ee4c9b",
+      "name": "Is New ?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO audit_log (invoice_id, action, actor, details)\n   VALUES (NULL, 'duplicate_rejected', 'system', $1::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ JSON.stringify({ vendor: $('Validate and Score').first().json.invoice.vendor, invoice_no: $('Validate and Score').first().json.invoice.invoice_no }) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -848,
+        -320
+      ],
+      "id": "747c4b7c-764c-429e-92e9-04277a856812",
+      "name": "Audit: Duplicate",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6972ae8d-5fd1-4fe5-847e-ffe57d1bf412",
+              "leftValue": "=   {{ $('Validate and Score').first().json.confidence >= 80 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -832,
+        -528
+      ],
+      "id": "24b70baa-187a-4f22-ac7f-5c37c17aed24",
+      "name": "High Confidence"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE invoices SET status = 'auto_posted' WHERE id = $1;",
+        "options": {
+          "queryReplacement": "= {{ [ $('Insert Invoice').first().json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -560,
+        -640
+      ],
+      "id": "73b5e269-46c0-415e-98c8-ba15c99c7b1d",
+      "name": "Mark Auto Posted",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO audit_log (invoice_id, action, actor, details)\n   VALUES ($1, 'auto_posted', 'system', $2::jsonb);",
+        "options": {
+          "queryReplacement": "= {{ [      $('Insert Invoice').first().json.id,      JSON.stringify({        confidence: $('Validate and Score').first().json.confidence,        issues: $('Validate and Score').first().json.issues      })    ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -336,
+        -640
+      ],
+      "id": "b223c8a5-1b1d-4496-ab99-d0a09b8c9e0f",
+      "name": "Audit: Auto Posted",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        -448
+      ],
+      "id": "e96e9e26-c1ed-4ab2-ac7a-5a3a33bb1e67",
+      "name": "Request Approval (todo)"
+    }
+  ],
+  "connections": {
+    "Upload Invoice": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Has Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Text": {
+      "main": [
+        [
+          {
+            "node": "LLM Extract",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OCR Fallback (todo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Extract": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM JSON": {
+      "main": [
+        [
+          {
+            "node": "Vendor Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendor Lookup": {
+      "main": [
+        [
+          {
+            "node": "Validate and Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Score": {
+      "main": [
+        [
+          {
+            "node": "Insert Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Invoice": {
+      "main": [
+        [
+          {
+            "node": "Is New ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New ?": {
+      "main": [
+        [
+          {
+            "node": "High Confidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audit: Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Confidence": {
+      "main": [
+        [
+          {
+            "node": "Mark Auto Posted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request Approval (todo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Auto Posted": {
+      "main": [
+        [
+          {
+            "node": "Audit: Auto Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "261cf385-1444-4e51-a194-d8f4213d6753",
+  "activeVersionId": null,
+  "versionCounter": 290,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-10-02T16:56:02.347Z",
+      "createdAt": "2026-10-02T16:56:02.347Z",
+      "role": "workflow:owner",
+      "workflowId": "fhNO7as61pCzVA1N",
+      "projectId": "7pKd69cnBFNDNZE1",
+      "project": {
+        "updatedAt": "2026-10-02T16:28:32.628Z",
+        "createdAt": "2026-10-02T16:27:14.439Z",
+        "id": "7pKd69cnBFNDNZE1",
+        "name": "Adarsh Yadav <mk079164@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "5c9ad008-0971-46f9-8682-317f5d103ab1"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
