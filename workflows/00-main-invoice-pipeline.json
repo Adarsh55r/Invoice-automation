@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-03T18:36:40.331Z",
+  "updatedAt": "2026-10-04T18:20:53.460Z",
   "createdAt": "2026-10-02T16:56:02.347Z",
   "id": "fhNO7as61pCzVA1N",
   "name": "00-main-invoice-pipeline",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.6,
       "position": [
-        -1744,
-        -832
+        -1920,
+        -912
       ],
       "id": "1ba8a18f-f00a-4eff-83b4-eeb40d8608f4",
       "name": "Upload Invoice",
@@ -41,8 +41,8 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        -1552,
-        -832
+        -1696,
+        -912
       ],
       "id": "8d3392af-6035-4165-8a94-a0a736ef8362",
       "name": "Extract PDF Text"
@@ -85,8 +85,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1344,
-        -800
+        -1472,
+        -912
       ],
       "id": "24dd92a4-7bc0-4ee8-9643-f270e071c6db",
       "name": "Has Text"
@@ -97,7 +97,7 @@
       "typeVersion": 1,
       "position": [
         -1328,
-        -944
+        -1024
       ],
       "id": "faea1be3-9b35-445f-9114-84a574bf97eb",
       "name": "OCR Fallback (todo)"
@@ -127,8 +127,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
       "position": [
-        -1088,
-        -816
+        -1184,
+        -928
       ],
       "id": "c9bc0fc9-0a35-445d-a495-fdc9fd847f85",
       "name": "LLM Extract",
@@ -146,8 +146,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -816,
-        -816
+        -864,
+        -928
       ],
       "id": "29343e33-0bff-476a-9214-976c93e1e2a4",
       "name": "Parse LLM JSON"
@@ -163,8 +163,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -1696,
-        -400
+        -1920,
+        -624
       ],
       "id": "3ef93934-2fdd-4316-9f42-77db1c232b72",
       "name": "Vendor Lookup",
@@ -178,13 +178,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const p = $('Parse LLM JSON').first().json.parsed;\nconst vendorRow = $input.first().json;\nconst issues = [];\nlet score = 100;\n\nif (!p) {\n  return [{ json: { invoice: null, confidence: 0, issues: ['LLM output not valid JSON'], dedupe_key: null } }];\n}\n\nfor (const f of ['vendor', 'invoice_no', 'total', 'due_date']) {\n  if (p[f] === null || p[f] === undefined || p[f] === '') {\n    issues.push(`missing ${f}`); score -= 25;\n  }\n}\nif (p.due_date && isNaN(Date.parse(p.due_date))) {\n  issues.push('due_date not parseable'); score -= 15;\n}\nconst items = p.line_items || [];\nconst sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);\nif (items.length && p.subtotal != null && Math.abs(sum - p.subtotal) > 0.01) {\n  issues.push(`line items (${sum}) != subtotal (${p.subtotal})`); score -= 30;\n}\nif (p.subtotal != null && p.tax != null && p.total != null &&\n    Math.abs(p.subtotal + p.tax - p.total) > 0.01) {\n  issues.push('subtotal + tax != total'); score -= 30;\n}\nif (!vendorRow.id) {\n  issues.push('vendor not in vendor master'); score -= 20;\n}\n\nreturn [{\n  json: {\n    invoice: p,\n    confidence: Math.max(score, 0),\n    issues,\n    dedupe_key: `${(p.vendor || '').toLowerCase()}|${p.invoice_no}|${p.total}`\n  }\n}];"
+        "jsCode": "const p = $('Parse LLM JSON').first().json.parsed;\nconst vendorRow = $input.first().json;\nconst issues = [];\nlet score = 100;\nconst ROUND_TOLERANCE = 1.0;\nconst AUTO_POST_THRESHOLD = 80;\n\nif (!p) {\n  return [{ json: {\n    invoice: null, confidence: 0,\n    issues: ['LLM output not valid JSON'],\n    dedupe_key: null, route: 'review',\n    route_reason: 'unparseable LLM output'\n  } }];\n}\n\n// Hard requirements\nfor (const f of ['vendor', 'invoice_no', 'total']) {\n  if (p[f] === null || p[f] === undefined || p[f] === '') {\n    issues.push(`missing ${f}`); score -= 25;\n  }\n}\n// Soft requirement: receipts often have no due date\nif (!p.due_date) {\n  issues.push('missing due_date'); score -= 10;\n} else if (isNaN(Date.parse(p.due_date))) {\n  issues.push('due_date not parseable'); score -= 15;\n}\n\n// Line items may be pre-tax or tax-inclusive\nconst items = p.line_items || [];\nconst sum = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);\nif (items.length && p.subtotal != null && p.total != null) {\n  const okSub = Math.abs(sum - p.subtotal) <= ROUND_TOLERANCE;\n  const okTot = Math.abs(sum - p.total) <= ROUND_TOLERANCE;\n  if (!okSub && !okTot) {\n    issues.push(`line items (${sum.toFixed(2)}) match neither subtotal nor total`);\n    score -= 30;\n  }\n}\n\nif (p.subtotal != null && p.tax != null && p.total != null &&\n    Math.abs(p.subtotal + p.tax - p.total) > ROUND_TOLERANCE) {\n  issues.push('subtotal + tax != total'); score -= 30;\n}\n\nconst vendorKnown = Boolean(vendorRow.id);\nif (!vendorKnown) {\n  issues.push('vendor not in vendor master'); score -= 20;\n}\n\nscore = Math.max(score, 0);\n\n// Routing decision: score threshold PLUS hard rules\nlet route = 'auto_post';\nlet route_reason = 'score ok and vendor known';\nif (!vendorKnown) {\n  route = 'review'; route_reason = 'unknown vendor always needs review';\n} else if (score < AUTO_POST_THRESHOLD) {\n  route = 'review'; route_reason = `score ${score} below ${AUTO_POST_THRESHOLD}`;\n}\n\nreturn [{\n  json: {\n    invoice: p,\n    confidence: score,\n    issues,\n    dedupe_key: `${(p.vendor || '').toLowerCase()}|${p.invoice_no}|${p.total}`,\n    route,\n    route_reason\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1440,
-        -400
+        -1824,
+        -464
       ],
       "id": "9d92779c-c354-4762-b093-6083bdf9bea5",
       "name": "Validate and Score"
@@ -200,8 +200,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -1248,
-        -400
+        -1712,
+        -608
       ],
       "id": "81edc7d7-0895-4183-8a8d-9a39cdb86875",
       "name": "Insert Invoice",
@@ -240,8 +240,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1024,
-        -400
+        -1600,
+        -464
       ],
       "id": "29739114-12a6-47eb-96c2-e75488ee4c9b",
       "name": "Is New ?"
@@ -257,8 +257,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -848,
-        -320
+        -1488,
+        -368
       ],
       "id": "747c4b7c-764c-429e-92e9-04277a856812",
       "name": "Audit: Duplicate",
@@ -281,7 +281,7 @@
           "conditions": [
             {
               "id": "6972ae8d-5fd1-4fe5-847e-ffe57d1bf412",
-              "leftValue": "=   {{ $('Validate and Score').first().json.confidence >= 80 }}",
+              "leftValue": "={{ $('Validate and Score').first().json.confidence >= 80 }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -298,8 +298,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -832,
-        -528
+        -1376,
+        -640
       ],
       "id": "24b70baa-187a-4f22-ac7f-5c37c17aed24",
       "name": "High Confidence"
@@ -316,7 +316,7 @@
       "typeVersion": 2.7,
       "position": [
         -560,
-        -640
+        -912
       ],
       "id": "73b5e269-46c0-415e-98c8-ba15c99c7b1d",
       "name": "Mark Auto Posted",
@@ -338,8 +338,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -336,
-        -640
+        -432,
+        -912
       ],
       "id": "b223c8a5-1b1d-4496-ab99-d0a09b8c9e0f",
       "name": "Audit: Auto Posted",
@@ -351,15 +351,164 @@
       }
     },
     {
-      "parameters": {},
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "mk079164@gmail.com",
+        "subject": "=  Invoice needs approval: {{ $('Validate and Score').first().json.invoice.vendor }} {{ $('Validate and Score').first().json.invoice.invoice_no }}",
+        "message": "=     Vendor: {{ $('Validate and Score').first().json.invoice.vendor }}\n     Invoice no: {{ $('Validate and Score').first().json.invoice.invoice_no }}\n     Total: {{ $('Validate and Score').first().json.invoice.total }} {{ $('Validate and Score').first().json.invoice.currency }}\n     Confidence: {{ $('Validate and Score').first().json.confidence }}\n     Issues: {{ $('Validate and Score').first().json.issues.join(', ') }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "buttonDisapprovalStyle": "primary"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
       "position": [
-        -576,
+        -1264,
+        -496
+      ],
+      "id": "e6284bf8-760d-42c6-befb-bdcfc7e3d512",
+      "name": "Request Approval",
+      "webhookId": "3d969e22-581a-4263-a0c5-ded96463ae29",
+      "alwaysOutputData": false,
+      "executeOnce": true,
+      "retryOnFail": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "h1VYmj4PqJvBuFCG",
+          "name": "Gmail - invoice project"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "852a79d9-5099-4248-8a73-3454e08927f3",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1120,
+        -592
+      ],
+      "id": "995c3d89-5c85-4806-ab66-62d968ead9f6",
+      "name": "Approved?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE invoices SET status = 'approved' WHERE id = $1;",
+        "options": {
+          "queryReplacement": "= {{ [ $('Insert Invoice').first().json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -800,
+        -688
+      ],
+      "id": "3ca4b4b7-65d0-47ec-bee4-61ad3e4dc0eb",
+      "name": "Mark Approved",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO audit_log (invoice_id, action, actor, details)\n   VALUES ($1, 'approved', 'human', $2::jsonb);",
+        "options": {
+          "queryReplacement": "=   {{ [      $('Insert Invoice').first().json.id,      JSON.stringify({        confidence: $('Validate and Score').first().json.confidence,        issues: $('Validate and Score').first().json.issues      })    ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -608,
+        -688
+      ],
+      "id": "0642ee5b-f006-4c2a-add2-bd18d00f7a9d",
+      "name": "Audit: Aproved",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE invoices SET status = 'rejected' WHERE id = $1;",
+        "options": {
+          "queryReplacement": "=   {{ [ $('Insert Invoice').first().json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -992,
         -448
       ],
-      "id": "e96e9e26-c1ed-4ab2-ac7a-5a3a33bb1e67",
-      "name": "Request Approval (todo)"
+      "id": "e0403101-2989-4cfa-a79d-2ddfc51040d0",
+      "name": "Marked Rejected",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (invoice_id, action, actor, details)\nVALUES ($1, 'rejected', 'human', $2::jsonb);",
+        "options": {
+          "queryReplacement": "= {{ [      $('Insert Invoice').first().json.id,      JSON.stringify({        confidence: $('Validate and Score').first().json.confidence,        issues: $('Validate and Score').first().json.issues      })    ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -768,
+        -384
+      ],
+      "id": "1c02d523-ddad-40db-a2c7-ad2404484699",
+      "name": "Audit: Rejected",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "connections": {
@@ -487,7 +636,7 @@
         ],
         [
           {
-            "node": "Request Approval (todo)",
+            "node": "Request Approval",
             "type": "main",
             "index": 0
           }
@@ -499,6 +648,57 @@
         [
           {
             "node": "Audit: Auto Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Approval": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Mark Approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marked Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Approved": {
+      "main": [
+        [
+          {
+            "node": "Audit: Aproved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marked Rejected": {
+      "main": [
+        [
+          {
+            "node": "Audit: Rejected",
             "type": "main",
             "index": 0
           }
@@ -516,9 +716,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "261cf385-1444-4e51-a194-d8f4213d6753",
+  "versionId": "4acd385c-f350-4e85-bf9f-3c2438529eac",
   "activeVersionId": null,
-  "versionCounter": 290,
+  "versionCounter": 426,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
