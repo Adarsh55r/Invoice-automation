@@ -1,0 +1,166 @@
+{
+  "updatedAt": "2026-10-05T06:53:42.949Z",
+  "createdAt": "2026-10-05T06:43:23.128Z",
+  "id": "VnT5yFBggo3r97ec",
+  "name": "91-weekly-report",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -352,
+        -32
+      ],
+      "id": "01902fd9-0544-4220-907f-b65f1d76256e",
+      "name": "Every Monday"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   SELECT\n     (SELECT count(*) FROM invoices WHERE created_at >= now() - interval '7 days') AS total,\n     (SELECT count(*) FROM invoices WHERE status = 'auto_posted' AND created_at >= now() - interval '7 days') AS auto_posted,\n     (SELECT count(*) FROM invoices WHERE status = 'approved' AND created_at >= now() - interval '7 days') AS approved,\n     (SELECT count(*) FROM invoices WHERE status = 'rejected' AND created_at >= now() - interval '7 days') AS rejected,\n     (SELECT count(*) FROM invoices WHERE status = 'pending') AS pending_now,\n     (SELECT COALESCE(sum(amount), 0) FROM invoices WHERE status IN ('auto_posted','approved') AND created_at >= now() - interval '7 days') AS value_posted,\n     (SELECT COALESCE(round(avg(confidence), 1), 0) FROM invoices WHERE created_at >= now() - interval '7 days') AS avg_confidence,\n     (SELECT count(*) FROM audit_log WHERE action = 'duplicate_rejected' AND created_at >= now() - interval '7 days') AS duplicates,\n     (SELECT COALESCE(sum(cost_usd), 0) FROM llm_calls WHERE created_at >= now() - interval '7 days') AS llm_cost,\n     (SELECT count(*) FROM workflow_errors WHERE created_at >= now() - interval '7 days') AS errors;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -144,
+        -32
+      ],
+      "id": "e3c1f4ec-ac4b-488d-ba65-d41a1c910308",
+      "name": "Weekly Status",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.first().json;\nconst n = (v) => Number(v) || 0;\n\nconst total = n(s.total);\nconst autoRate = total ? Math.round((n(s.auto_posted) / total) * 100) : 0;\n\nconst subject = `Weekly invoice report: ${total} invoices, ${autoRate}% auto-posted`;\n\nconst body = [\n  'WEEKLY INVOICE REPORT (last 7 days)',\n  '-----------------------------------',\n  `Invoices received:     ${total}`,\n  `Auto-posted:           ${n(s.auto_posted)} (${autoRate}%)`,\n  `Approved by human:     ${n(s.approved)}`,\n  `Rejected by human:     ${n(s.rejected)}`,\n  `Still waiting review:  ${n(s.pending_now)}`,\n  `Duplicates blocked:    ${n(s.duplicates)}`,\n  '',\n  `Value posted:          ${n(s.value_posted).toFixed(2)}`,\n  `Average confidence:    ${n(s.avg_confidence)}`,\n  '',\n  `LLM spend:             $${n(s.llm_cost).toFixed(4)}`,\n  `Workflow errors:       ${n(s.errors)}`,\n].join('\\n');\n\nreturn [{ json: { subject, body } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -32
+      ],
+      "id": "aad453aa-ec6f-4254-b1a2-04e826685831",
+      "name": "Format report"
+    },
+    {
+      "parameters": {
+        "sendTo": "adarshyadav55r@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        -32
+      ],
+      "id": "b17c7f55-ced7-49c7-ae57-d8f5fc54e03f",
+      "name": "Send Weekly report",
+      "webhookId": "d6433d11-eb96-445b-a2de-249626acbf94",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "h1VYmj4PqJvBuFCG",
+          "name": "Gmail - invoice project"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday": {
+      "main": [
+        [
+          {
+            "node": "Weekly Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Status": {
+      "main": [
+        [
+          {
+            "node": "Format report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format report": {
+      "main": [
+        [
+          {
+            "node": "Send Weekly report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "41130bfa-4a82-4246-b1d7-5a16f0e319c5",
+  "activeVersionId": null,
+  "versionCounter": 23,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-10-05T06:43:23.128Z",
+      "createdAt": "2026-10-05T06:43:23.128Z",
+      "role": "workflow:owner",
+      "workflowId": "VnT5yFBggo3r97ec",
+      "projectId": "7pKd69cnBFNDNZE1",
+      "project": {
+        "updatedAt": "2026-10-02T16:28:32.628Z",
+        "createdAt": "2026-10-02T16:27:14.439Z",
+        "id": "7pKd69cnBFNDNZE1",
+        "name": "Adarsh Yadav <mk079164@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "5c9ad008-0971-46f9-8682-317f5d103ab1"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
