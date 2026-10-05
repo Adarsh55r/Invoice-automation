@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-05T06:09:58.856Z",
+  "updatedAt": "2026-10-05T08:49:55.575Z",
   "createdAt": "2026-10-02T16:56:02.347Z",
   "id": "fhNO7as61pCzVA1N",
   "name": "00-main-invoice-pipeline",
@@ -16,7 +16,7 @@
               "fieldLabel": "invoice",
               "fieldType": "file",
               "multipleFiles": false,
-              "acceptFileTypes": ".pdf, .png, .jpg"
+              "acceptFileTypes": ".pdf"
             }
           ]
         },
@@ -69,7 +69,7 @@
             },
             {
               "id": "4578e5fe-5a2e-4836-a4f1-5205014a8aae",
-              "leftValue": "",
+              "leftValue": "100",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -85,22 +85,11 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -2672,
-        -928
+        -2704,
+        -1040
       ],
       "id": "24dd92a4-7bc0-4ee8-9643-f270e071c6db",
       "name": "Has Text"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        -2400,
-        -1200
-      ],
-      "id": "faea1be3-9b35-445f-9114-84a574bf97eb",
-      "name": "OCR Fallback (todo)"
     },
     {
       "parameters": {
@@ -128,8 +117,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
       "position": [
-        -2400,
-        -944
+        -2336,
+        -1232
       ],
       "id": "c9bc0fc9-0a35-445d-a495-fdc9fd847f85",
       "name": "LLM Extract",
@@ -533,6 +522,46 @@
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ocr:8000/ocr",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "invoice"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -2320,
+        -976
+      ],
+      "id": "a4a57290-7f4c-41af-9d5c-be640570b775",
+      "name": "OCR Extract",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Upload Invoice').first().binary || {};\nconst keys = Object.keys(original);\n\nif (keys.length === 0) {\n  throw new Error('No binary file found on Upload Invoice');\n}\n\n// Always expose the file under the name \"invoice\", whatever the form called it\nreturn [{\n  json: {},\n  binary: { invoice: original[keys[0]] }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        -928
+      ],
+      "id": "6fb18b2a-9469-4695-9100-3b8b643f2fc6",
+      "name": "Restore PDF"
     }
   ],
   "connections": {
@@ -569,7 +598,7 @@
         ],
         [
           {
-            "node": "OCR Fallback (todo)",
+            "node": "Restore PDF",
             "type": "main",
             "index": 0
           }
@@ -738,6 +767,28 @@
       "main": [
         []
       ]
+    },
+    "OCR Extract": {
+      "main": [
+        [
+          {
+            "node": "LLM Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore PDF": {
+      "main": [
+        [
+          {
+            "node": "OCR Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -750,9 +801,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "19a2b80b-8495-492f-b4be-05acb6f2ce0c",
+  "versionId": "62fd7ed6-11a3-4d5a-b90a-1323f6616b08",
   "activeVersionId": null,
-  "versionCounter": 491,
+  "versionCounter": 527,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
