@@ -14,6 +14,12 @@ services:
       timeout: 5s
       retries: 10
 
+  ocr:
+    build: ./services/pdf-parser
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: unless-stopped
