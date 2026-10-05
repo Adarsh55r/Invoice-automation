@@ -1,0 +1,132 @@
+{
+  "updatedAt": "2026-10-05T05:42:02.224Z",
+  "createdAt": "2026-10-05T05:32:27.790Z",
+  "id": "dSb1MJfQ2OnxVnVy",
+  "name": "90-global-error-handler",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        -48
+      ],
+      "id": "cc918606-f92a-43d4-8bbc-2f1c68b05435",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO workflow_errors (workflow, node, message, execution_id)\n   VALUES ($1, $2, $3, $4);",
+        "options": {
+          "queryReplacement": "={{ [      $json.workflow.name,      $json.execution.lastNodeExecuted || 'unknown',      $json.execution.error.message || 'no message',      $json.execution.id || 'unknown'    ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -96,
+        -48
+      ],
+      "id": "26df4fed-d75d-4b0a-999c-0c4cdf1e01c4",
+      "name": "Log Error",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "mk079164@gmail.com",
+        "subject": "=Workflow failed: {{ $('Error Trigger').first().json.workflow.name }}",
+        "message": "=Node: {{ $('Error Trigger').first().json.execution.lastNodeExecuted }}\nError: {{ $('Error Trigger').first().json.execution.error.message }} \nExecution ID: {{ $('Error Trigger').first().json.execution.id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        128,
+        -48
+      ],
+      "id": "8605b8a2-5019-4cae-8303-50fcf2f11721",
+      "name": "Notify Failure",
+      "webhookId": "0e46321e-67e4-4cd4-b10d-6feab54247ff",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "h1VYmj4PqJvBuFCG",
+          "name": "Gmail - invoice project"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Notify Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "c691b122-5d4e-42ab-9253-ac123868123a",
+  "activeVersionId": "266c9944-2ab3-4398-822f-ca876ec4bb45",
+  "versionCounter": 23,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-10-05T05:32:27.790Z",
+      "createdAt": "2026-10-05T05:32:27.790Z",
+      "role": "workflow:owner",
+      "workflowId": "dSb1MJfQ2OnxVnVy",
+      "projectId": "7pKd69cnBFNDNZE1",
+      "project": {
+        "updatedAt": "2026-10-02T16:28:32.628Z",
+        "createdAt": "2026-10-02T16:27:14.439Z",
+        "id": "7pKd69cnBFNDNZE1",
+        "name": "Adarsh Yadav <mk079164@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "5c9ad008-0971-46f9-8682-317f5d103ab1"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

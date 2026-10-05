@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-04T18:20:53.460Z",
+  "updatedAt": "2026-10-05T06:09:58.856Z",
   "createdAt": "2026-10-02T16:56:02.347Z",
   "id": "fhNO7as61pCzVA1N",
   "name": "00-main-invoice-pipeline",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.6,
       "position": [
-        -1920,
-        -912
+        -3376,
+        -928
       ],
       "id": "1ba8a18f-f00a-4eff-83b4-eeb40d8608f4",
       "name": "Upload Invoice",
@@ -41,8 +41,8 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        -1696,
-        -912
+        -2912,
+        -928
       ],
       "id": "8d3392af-6035-4165-8a94-a0a736ef8362",
       "name": "Extract PDF Text"
@@ -85,8 +85,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1472,
-        -912
+        -2672,
+        -928
       ],
       "id": "24dd92a4-7bc0-4ee8-9643-f270e071c6db",
       "name": "Has Text"
@@ -96,8 +96,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -1328,
-        -1024
+        -2400,
+        -1200
       ],
       "id": "faea1be3-9b35-445f-9114-84a574bf97eb",
       "name": "OCR Fallback (todo)"
@@ -121,14 +121,15 @@
             }
           ]
         },
+        "simplify": false,
         "builtInTools": {},
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
       "position": [
-        -1184,
-        -928
+        -2400,
+        -944
       ],
       "id": "c9bc0fc9-0a35-445d-a495-fdc9fd847f85",
       "name": "LLM Extract",
@@ -146,8 +147,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -864,
-        -928
+        -2000,
+        -944
       ],
       "id": "29343e33-0bff-476a-9214-976c93e1e2a4",
       "name": "Parse LLM JSON"
@@ -163,8 +164,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -1920,
-        -624
+        -1696,
+        -944
       ],
       "id": "3ef93934-2fdd-4316-9f42-77db1c232b72",
       "name": "Vendor Lookup",
@@ -183,8 +184,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1824,
-        -464
+        -1344,
+        -944
       ],
       "id": "9d92779c-c354-4762-b093-6083bdf9bea5",
       "name": "Validate and Score"
@@ -200,8 +201,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -1712,
-        -608
+        -3296,
+        -656
       ],
       "id": "81edc7d7-0895-4183-8a8d-9a39cdb86875",
       "name": "Insert Invoice",
@@ -240,8 +241,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1600,
-        -464
+        -2928,
+        -656
       ],
       "id": "29739114-12a6-47eb-96c2-e75488ee4c9b",
       "name": "Is New ?"
@@ -257,8 +258,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -1488,
-        -368
+        -3056,
+        -480
       ],
       "id": "747c4b7c-764c-429e-92e9-04277a856812",
       "name": "Audit: Duplicate",
@@ -298,8 +299,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1376,
-        -640
+        -2592,
+        -672
       ],
       "id": "24b70baa-187a-4f22-ac7f-5c37c17aed24",
       "name": "High Confidence"
@@ -315,8 +316,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -560,
-        -912
+        -2336,
+        -688
       ],
       "id": "73b5e269-46c0-415e-98c8-ba15c99c7b1d",
       "name": "Mark Auto Posted",
@@ -338,8 +339,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -432,
-        -912
+        -2080,
+        -688
       ],
       "id": "b223c8a5-1b1d-4496-ab99-d0a09b8c9e0f",
       "name": "Audit: Auto Posted",
@@ -367,8 +368,8 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        -1264,
-        -496
+        -2624,
+        -272
       ],
       "id": "e6284bf8-760d-42c6-befb-bdcfc7e3d512",
       "name": "Request Approval",
@@ -412,8 +413,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1120,
-        -592
+        -2352,
+        -272
       ],
       "id": "995c3d89-5c85-4806-ab66-62d968ead9f6",
       "name": "Approved?"
@@ -429,8 +430,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -800,
-        -688
+        -2016,
+        -288
       ],
       "id": "3ca4b4b7-65d0-47ec-bee4-61ad3e4dc0eb",
       "name": "Mark Approved",
@@ -452,8 +453,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -608,
-        -688
+        -1760,
+        -288
       ],
       "id": "0642ee5b-f006-4c2a-add2-bd18d00f7a9d",
       "name": "Audit: Aproved",
@@ -475,8 +476,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -992,
-        -448
+        -2384,
+        -64
       ],
       "id": "e0403101-2989-4cfa-a79d-2ddfc51040d0",
       "name": "Marked Rejected",
@@ -498,11 +499,34 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -768,
-        -384
+        -2112,
+        -64
       ],
       "id": "1c02d523-ddad-40db-a2c7-ad2404484699",
       "name": "Audit: Rejected",
+      "credentials": {
+        "postgres": {
+          "id": "Sb6mreBKArrNSsV5",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO llm_calls (execution_id, model, input_tokens, output_tokens, cost_usd) VALUES ($1, $2, $3, $4, $5);",
+        "options": {
+          "queryReplacement": "= {{ [      $execution.id,      $json.model || 'gpt-4o-mini',      $json.usage?.input_tokens || 0,      $json.usage?.output_tokens || 0,      (($json.usage?.input_tokens || 0) * 0.15 + ($json.usage?.output_tokens || 0) * 0.60) / 1000000    ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -2000,
+        -1136
+      ],
+      "id": "f92e9ae2-749a-4ff1-bbf9-9e163e840335",
+      "name": "Log LLM Cost",
       "credentials": {
         "postgres": {
           "id": "Sb6mreBKArrNSsV5",
@@ -555,6 +579,11 @@
     "LLM Extract": {
       "main": [
         [
+          {
+            "node": "Log LLM Cost",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "Parse LLM JSON",
             "type": "main",
@@ -704,6 +733,11 @@
           }
         ]
       ]
+    },
+    "Log LLM Cost": {
+      "main": [
+        []
+      ]
     }
   },
   "settings": {
@@ -716,9 +750,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "4acd385c-f350-4e85-bf9f-3c2438529eac",
+  "versionId": "19a2b80b-8495-492f-b4be-05acb6f2ce0c",
   "activeVersionId": null,
-  "versionCounter": 426,
+  "versionCounter": 491,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
