@@ -1,0 +1,322 @@
+{
+  "inv_01.pdf": {
+    "vendor": "Verma Kirana Traders",
+    "invoice_no": "VKT/2026/1001",
+    "currency": "INR",
+    "total": 1554.0,
+    "tax": 74.0,
+    "due_date": ""
+  },
+  "inv_02.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1002",
+    "currency": "USD",
+    "total": 1375.5,
+    "tax": 65.5,
+    "due_date": "2026-10-03"
+  },
+  "inv_03.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1003",
+    "currency": "USD",
+    "total": 3785.6,
+    "tax": 405.6,
+    "due_date": "2026-10-04"
+  },
+  "inv_04.pdf": {
+    "vendor": "Gupta Office Supplies",
+    "invoice_no": "GOS/2026/1004",
+    "currency": "INR",
+    "total": 2551.5,
+    "tax": 121.5,
+    "due_date": ""
+  },
+  "inv_05.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1005",
+    "currency": "USD",
+    "total": 1663.8,
+    "tax": 253.8,
+    "due_date": ""
+  },
+  "inv_06.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1006",
+    "currency": "INR",
+    "total": 7108.5,
+    "tax": 338.5,
+    "due_date": "2026-10-07"
+  },
+  "inv_07.pdf": {
+    "vendor": "Gupta Office Supplies",
+    "invoice_no": "GOS/2026/1007",
+    "currency": "INR",
+    "total": 3035.2,
+    "tax": 325.2,
+    "due_date": "2026-10-08"
+  },
+  "inv_08.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1008",
+    "currency": "USD",
+    "total": 1719.2,
+    "tax": 184.2,
+    "due_date": "2026-10-09"
+  },
+  "inv_09.pdf": {
+    "vendor": "Gupta Office Supplies",
+    "invoice_no": "GOS/2026/1009",
+    "currency": "INR",
+    "total": 5463.4,
+    "tax": 833.4,
+    "due_date": "2026-10-10"
+  },
+  "inv_10.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1010",
+    "currency": "USD",
+    "total": 8158.5,
+    "tax": 388.5,
+    "due_date": ""
+  },
+  "inv_11.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1011",
+    "currency": "USD",
+    "total": 4900.0,
+    "tax": 525.0,
+    "due_date": "2026-10-12"
+  },
+  "inv_12.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1012",
+    "currency": "USD",
+    "total": 2065.0,
+    "tax": 315.0,
+    "due_date": ""
+  },
+  "inv_13.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1013",
+    "currency": "INR",
+    "total": 11823.0,
+    "tax": 563.0,
+    "due_date": ""
+  },
+  "inv_14.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1014",
+    "currency": "INR",
+    "total": 4824.75,
+    "tax": 229.75,
+    "due_date": ""
+  },
+  "inv_15.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1015",
+    "currency": "USD",
+    "total": 3451.5,
+    "tax": 526.5,
+    "due_date": ""
+  },
+  "inv_16.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1016",
+    "currency": "USD",
+    "total": 5109.4,
+    "tax": 779.4,
+    "due_date": "2026-10-17"
+  },
+  "inv_17.pdf": {
+    "vendor": "Gupta Office Supplies",
+    "invoice_no": "GOS/2026/1017",
+    "currency": "INR",
+    "total": 6124.2,
+    "tax": 934.2,
+    "due_date": "2026-10-18"
+  },
+  "inv_18.pdf": {
+    "vendor": "Verma Kirana Traders",
+    "invoice_no": "VKT/2026/1018",
+    "currency": "INR",
+    "total": 535.5,
+    "tax": 25.5,
+    "due_date": "2026-10-19"
+  },
+  "inv_19.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1019",
+    "currency": "INR",
+    "total": 3427.9,
+    "tax": 522.9,
+    "due_date": "2026-10-20"
+  },
+  "inv_20.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1020",
+    "currency": "USD",
+    "total": 2041.4,
+    "tax": 311.4,
+    "due_date": "2026-10-21"
+  },
+  "inv_21.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1021",
+    "currency": "USD",
+    "total": 2205.0,
+    "tax": 105.0,
+    "due_date": "2026-10-22"
+  },
+  "inv_22.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1022",
+    "currency": "USD",
+    "total": 940.8,
+    "tax": 100.8,
+    "due_date": "2026-10-23"
+  },
+  "inv_23.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1023",
+    "currency": "USD",
+    "total": 1366.4,
+    "tax": 146.4,
+    "due_date": ""
+  },
+  "inv_24.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1024",
+    "currency": "USD",
+    "total": 2489.8,
+    "tax": 379.8,
+    "due_date": ""
+  },
+  "inv_25.pdf": {
+    "vendor": "Verma Kirana Traders",
+    "invoice_no": "VKT/2026/1025",
+    "currency": "INR",
+    "total": 3599.0,
+    "tax": 549.0,
+    "due_date": "2026-10-26"
+  },
+  "inv_26.pdf": {
+    "vendor": "Gupta Office Supplies",
+    "invoice_no": "GOS/2026/1026",
+    "currency": "INR",
+    "total": 2814.0,
+    "tax": 134.0,
+    "due_date": ""
+  },
+  "inv_27.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1027",
+    "currency": "USD",
+    "total": 6808.6,
+    "tax": 1038.6,
+    "due_date": "2026-10-28"
+  },
+  "inv_28.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1028",
+    "currency": "USD",
+    "total": 5712.0,
+    "tax": 612.0,
+    "due_date": "2026-10-29"
+  },
+  "inv_29.pdf": {
+    "vendor": "Verma Kirana Traders",
+    "invoice_no": "VKT/2026/1029",
+    "currency": "INR",
+    "total": 2073.75,
+    "tax": 98.75,
+    "due_date": "2026-10-30"
+  },
+  "inv_30.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1030",
+    "currency": "USD",
+    "total": 5522.4,
+    "tax": 842.4,
+    "due_date": ""
+  },
+  "inv_31.pdf": {
+    "vendor": "Bluepeak Logistics",
+    "invoice_no": "BPL/2026/1031",
+    "currency": "USD",
+    "total": 5286.4,
+    "tax": 566.4,
+    "due_date": ""
+  },
+  "inv_32.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1032",
+    "currency": "INR",
+    "total": 3738.0,
+    "tax": 178.0,
+    "due_date": "2026-11-02"
+  },
+  "inv_33.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1033",
+    "currency": "USD",
+    "total": 6861.7,
+    "tax": 1046.7,
+    "due_date": "2026-11-03"
+  },
+  "inv_34.pdf": {
+    "vendor": "Verma Kirana Traders",
+    "invoice_no": "VKT/2026/1034",
+    "currency": "INR",
+    "total": 1097.6,
+    "tax": 117.6,
+    "due_date": "2026-11-04"
+  },
+  "inv_35.pdf": {
+    "vendor": "Gupta Office Supplies",
+    "invoice_no": "GOS/2026/1035",
+    "currency": "INR",
+    "total": 4932.4,
+    "tax": 752.4,
+    "due_date": ""
+  },
+  "inv_36.pdf": {
+    "vendor": "Northwind Stationers",
+    "invoice_no": "NWS/2026/1036",
+    "currency": "USD",
+    "total": 6552.0,
+    "tax": 312.0,
+    "due_date": ""
+  },
+  "inv_37.pdf": {
+    "vendor": "Verma Kirana Traders",
+    "invoice_no": "VKT/2026/1037",
+    "currency": "INR",
+    "total": 4023.8,
+    "tax": 613.8,
+    "due_date": "2026-11-07"
+  },
+  "inv_38.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1038",
+    "currency": "INR",
+    "total": 7087.5,
+    "tax": 337.5,
+    "due_date": ""
+  },
+  "inv_39.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1039",
+    "currency": "INR",
+    "total": 5073.6,
+    "tax": 543.6,
+    "due_date": ""
+  },
+  "inv_40.pdf": {
+    "vendor": "Rao Electronics",
+    "invoice_no": "RAO/2026/1040",
+    "currency": "INR",
+    "total": 5970.8,
+    "tax": 910.8,
+    "due_date": ""
+  }
+}

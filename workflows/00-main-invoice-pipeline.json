@@ -1,10 +1,10 @@
 {
-  "updatedAt": "2026-10-05T08:49:55.575Z",
+  "updatedAt": "2026-10-06T09:38:37.839Z",
   "createdAt": "2026-10-02T16:56:02.347Z",
   "id": "fhNO7as61pCzVA1N",
   "name": "00-main-invoice-pipeline",
   "description": null,
-  "active": false,
+  "active": true,
   "isArchived": false,
   "nodes": [
     {
@@ -53,33 +53,23 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict",
+            "typeValidation": "loose",
             "version": 3
           },
           "conditions": [
             {
               "id": "e4c9a75e-0bb8-4538-8630-b49d011a0f18",
-              "leftValue": "=   {{ ($json.text || '').length }}",
-              "rightValue": "",
+              "leftValue": "={{ ($json.text || '').length }}",
+              "rightValue": 50,
               "operator": {
-                "type": "string",
-                "operation": "exists",
-                "singleValue": true
-              }
-            },
-            {
-              "id": "4578e5fe-5a2e-4836-a4f1-5205014a8aae",
-              "leftValue": "100",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
+                "type": "number",
+                "operation": "gt"
               }
             }
           ],
           "combinator": "and"
         },
+        "looseTypeValidation": true,
         "options": {}
       },
       "type": "n8n-nodes-base.if",
@@ -103,7 +93,7 @@
           "values": [
             {
               "role": "system",
-              "content": "You extract invoice data. Return ONLY JSON with this shape:\n       {\"vendor\": string, \"invoice_no\": string, \"currency\": string,\n        \"invoice_date\": \"YYYY-MM-DD\", \"due_date\": \"YYYY-MM-DD\",\n        \"subtotal\": number, \"tax\": number, \"total\": number,\n        \"line_items\": [{\"description\": string, \"qty\": number, \"unit_price\": number, \"amount\": number}]}\n       Use null for any field you cannot find. Never guess."
+              "content": "You extract invoice data. Return ONLY JSON with this shape:\n       {\"vendor\": string, \"invoice_no\": string, \"currency\": string,\n        \"invoice_date\": \"YYYY-MM-DD\", \"due_date\": \"YYYY-MM-DD\",\n        \"subtotal\": number, \"tax\": number, \"total\": number,\n        \"line_items\": [{\"description\": string, \"qty\": number, \"unit_price\": number, \"amount\": number}]}\n       Use null for any field you cannot find. Never guess.\ndue_date must be null unless the document explicitly shows a due date or payment terms. Never copy invoice_date into due_date."
             },
             {
               "content": "=Extract the data from this invoice text:\n{{ $json.text }}"
@@ -552,7 +542,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const original = $('Upload Invoice').first().binary || {};\nconst keys = Object.keys(original);\n\nif (keys.length === 0) {\n  throw new Error('No binary file found on Upload Invoice');\n}\n\n// Always expose the file under the name \"invoice\", whatever the form called it\nreturn [{\n  json: {},\n  binary: { invoice: original[keys[0]] }\n}];"
+        "jsCode": "let bin = null;\nfor (const name of ['Eval Upload', 'Upload Invoice']) {\n  try {\n    const b = $(name).first().binary;\n    if (b && Object.keys(b).length) { bin = b; break; }\n  } catch (e) {\n    // that trigger didn't run in this execution, try the next one\n  }\n}\nif (!bin) throw new Error('No PDF binary found on Eval Upload or Upload Invoice');\n\nconst key = bin.invoice ? 'invoice' : Object.keys(bin)[0];\nreturn [{ json: {}, binary: { invoice: bin[key] } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -562,6 +552,22 @@
       ],
       "id": "6fb18b2a-9469-4695-9100-3b8b643f2fc6",
       "name": "Restore PDF"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eval-invoice",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3376,
+        -1168
+      ],
+      "id": "c64708ee-cdfe-4d27-b88a-3359facabfe9",
+      "name": "Eval upload",
+      "webhookId": "c9ea8571-145b-479d-8957-55647d386e96"
     }
   ],
   "connections": {
@@ -789,11 +795,25 @@
           }
         ]
       ]
+    },
+    "Eval upload": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
   },
   "staticData": null,
   "meta": {
@@ -801,10 +821,10 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "62fd7ed6-11a3-4d5a-b90a-1323f6616b08",
-  "activeVersionId": null,
-  "versionCounter": 527,
-  "triggerCount": 0,
+  "versionId": "2f97427d-b832-4137-9653-82348dc234a0",
+  "activeVersionId": "2f97427d-b832-4137-9653-82348dc234a0",
+  "versionCounter": 552,
+  "triggerCount": 2,
   "sourceWorkflowId": null,
   "tags": [],
   "shared": [
@@ -828,7 +848,7 @@
     }
   ],
   "versionMetadata": {
-    "name": null,
-    "description": null
+    "name": "Version 2f97427d",
+    "description": ""
   }
 }
