@@ -26,29 +26,6 @@ This project automates the safe part and escalates the rest:
 | Silent failures | A global error workflow logs failures and sends an alert |
 | AI cost surprises | Each LLM call is logged to `llm_calls` |
 
-## Architecture
-
-```mermaid
-flowchart TD
-    A[Upload form or Eval webhook] --> B[Extract PDF Text]
-    B --> C{Has Text?}
-    C -- true --> E[LLM Extract]
-    C -- false --> D[Restore PDF] --> O[OCR Extract - Tesseract service] --> E
-    E --> L[Log LLM Cost]
-    E --> P[Parse LLM JSON]
-    P --> V[Vendor Lookup]
-    V --> S[Validate and Score]
-    S --> I[Insert Invoice - ON CONFLICT DO NOTHING]
-    I --> N{Is New?}
-    N -- false --> AD[Audit: Duplicate]
-    N -- true --> H{High Confidence?}
-    H -- true --> AP[Mark Auto Posted] --> AA[Audit: Auto Posted]
-    H -- false --> R[Request Approval - email, workflow pauses]
-    R --> Q{Approved?}
-    Q -- true --> MA[Mark Approved] --> AAp[Audit: Approved]
-    Q -- false --> MR[Mark Rejected] --> AR[Audit: Rejected]
-```
-
 Supporting workflows (decoupled through Postgres, not linked on the canvas):
 
 - **`90-global-error-handler`**: Error Trigger, logs to `workflow_errors`, emails an alert.
@@ -152,6 +129,7 @@ Requires Docker Desktop, Git and Python 3.
 | **All fields correct** | **39/40 (97.5%)** |
 
 All 40 were auto-posted, because the sample vendors were in the vendor table.
+![Evaluation result](docs/Eval_result.png)
 
 **Cost:** <!-- TODO: fill in from `SELECT sum(cost_usd), count(*) FROM llm_calls` and confirm against the OpenAI usage dashboard -->
 
